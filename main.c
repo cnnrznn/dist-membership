@@ -8,7 +8,6 @@
 #include "channel.h"
 
 void print_usage(void);
-void print_delivery(SeqMessage *);
 
 static char cont = 1;
 
@@ -23,7 +22,7 @@ int main(int argc, char **argv)
         char *port = NULL;
         char *hostfile = NULL;
         int id = -1;
-        size_t timeout = 1000;
+        size_t timeout = 3;
 
         int opt;
         char options[] = { "h:p:i:t:" };

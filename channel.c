@@ -12,10 +12,6 @@
 #include "queue.h"
 
 #define HOSTS_MAX 1024
-#define QSIZE 1024
-#define GARBAGE 1337
-#define TIMEOUT_LIMIT 100000
-#define TIMEOUT_FACTOR 1.5
 
 static int sk = -1;
 static struct addrinfo hints, *skaddr;
@@ -26,6 +22,10 @@ static size_t hostaddrslen[HOSTS_MAX];
 static int nhosts = 0;
 static int id = -1;
 static size_t timeout;
+
+static time_t last_heartbeat;
+static time_t *hb_vec;
+static queue *hb_q;
 
 int
 ch_init(char *hostfile, char *port, int _id, size_t _timeout)
@@ -88,6 +88,12 @@ ch_init(char *hostfile, char *port, int _id, size_t _timeout)
                 goto err_addr;
         }
 
+        hb_vec = malloc(nhosts * sizeof(time_t));
+        for (i=0; i<nhosts; i++)
+                hb_vec[i] = time(NULL);
+
+        hb_q = q_alloc(1024);
+
         return 0;
 err_addr:
         freeaddrinfo(skaddr);
@@ -104,7 +110,71 @@ ch_fini(void)
         return -1;
 }
 
+static void
+drain_socket(void)
+{
+        char msg[MSGBUFLEN] = { 0 };
+        struct sockaddr_storage from;
+        int fromlen = sizeof(struct sockaddr_storage);
+        int *type;
+        HBMessage *hbm;
+
+        while (recvfrom(sk, msg, MSGBUFLEN, MSG_DONTWAIT,
+                        (struct sockaddr *)&from, &fromlen) > 0) {
+                type = (int *)msg;
+                switch (*type) {
+                case 1:
+                        hbm = malloc(sizeof(HBMessage));
+                        memcpy(hbm, msg, sizeof(HBMessage));
+                        q_push(hb_q, hbm);
+                        break;
+                default:
+                        // TODO some error handling
+                        abort();
+                }
+        }
+}
+
+static void
+heartbeat(void)
+{
+        int i;
+        time_t currtime = time(NULL);
+        HBMessage mybeat = {
+                .type = 1,
+                .id = id,
+                };
+        HBMessage *hbm;
+
+        // send heartbeat
+        if (difftime(last_heartbeat, currtime) > timeout) {
+                for (i=0; i<nhosts; i++) {
+                        sendto(sk, &mybeat, sizeof(HBMessage), 0, &hostaddrs[i], hostaddrslen[i]);
+                }
+
+                last_heartbeat = currtime;
+        }
+
+        // process heartbeat queue
+        while (hbm = q_pop(hb_q)) {
+                hb_vec[hbm->id] = time(NULL);
+                free(hbm);
+        }
+
+        // detect dead peer
+        for (i=0; i<nhosts; i++) {
+                if (difftime(currtime, hb_vec[i]) > 2*timeout) {
+                        fprintf(stdout, "Peer %d is unreachable\n", i);
+                }
+        }
+}
+
 void
 ch_tick(void)
 {
+        // flush all incoming messages
+        drain_socket();
+
+        // process heartbeats
+        heartbeat();
 }
