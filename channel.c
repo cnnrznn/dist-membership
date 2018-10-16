@@ -94,6 +94,8 @@ ch_init(char *hostfile, char *port, int _id, size_t _timeout)
 
         hb_q = q_alloc(1024);
 
+        last_heartbeat = time(NULL);
+
         return 0;
 err_addr:
         freeaddrinfo(skaddr);
@@ -105,8 +107,8 @@ int
 ch_fini(void)
 {
         close(sk);
+        q_free(hb_q);
 
-        // TODO
         return -1;
 }
 
@@ -122,8 +124,10 @@ drain_socket(void)
         while (recvfrom(sk, msg, MSGBUFLEN, MSG_DONTWAIT,
                         (struct sockaddr *)&from, &fromlen) > 0) {
                 type = (int *)msg;
+                fprintf(stderr, "Received message of type %d\n", *type);
                 switch (*type) {
                 case 1:
+                        fprintf(stderr, "Draining HBMessage\n");
                         hbm = malloc(sizeof(HBMessage));
                         memcpy(hbm, msg, sizeof(HBMessage));
                         q_push(hb_q, hbm);
@@ -147,8 +151,9 @@ heartbeat(void)
         HBMessage *hbm;
 
         // send heartbeat
-        if (difftime(last_heartbeat, currtime) > timeout) {
+        if (difftime(currtime, last_heartbeat) > timeout) {
                 for (i=0; i<nhosts; i++) {
+                        fprintf(stderr, "Sending HBMessage to %d\n", i);
                         sendto(sk, &mybeat, sizeof(HBMessage), 0, &hostaddrs[i], hostaddrslen[i]);
                 }
 
@@ -157,6 +162,7 @@ heartbeat(void)
 
         // process heartbeat queue
         while (hbm = q_pop(hb_q)) {
+                fprintf(stderr, "Received HBMessage from %d\n", hbm->id);
                 hb_vec[hbm->id] = time(NULL);
                 free(hbm);
         }
@@ -164,7 +170,7 @@ heartbeat(void)
         // detect dead peer
         for (i=0; i<nhosts; i++) {
                 if (difftime(currtime, hb_vec[i]) > 2*timeout) {
-                        fprintf(stdout, "Peer %d is unreachable\n", i);
+                        fprintf(stdout, "Peer %d not reachable\n", i);
                 }
         }
 }

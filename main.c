@@ -70,6 +70,7 @@ int main(int argc, char **argv)
 
         while (cont) {
                 ch_tick();
+                sleep(1);
         }
 
         return 0;
