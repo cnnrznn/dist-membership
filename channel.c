@@ -26,6 +26,10 @@ static size_t timeout;
 static time_t last_heartbeat;
 static time_t *hb_vec;
 static queue *hb_q;
+static queue *op_q;
+static char *alive;
+
+static char is_leader = 0;
 
 int
 ch_init(char *hostfile, char *port, int _id, size_t _timeout)
@@ -88,13 +92,20 @@ ch_init(char *hostfile, char *port, int _id, size_t _timeout)
                 goto err_addr;
         }
 
+        alive = calloc(nhosts, sizeof(char));
+        alive[id] = 1;
+
         hb_vec = malloc(nhosts * sizeof(time_t));
         for (i=0; i<nhosts; i++)
                 hb_vec[i] = time(NULL);
 
         hb_q = q_alloc(1024);
+        op_q = q_alloc(1024);
 
         last_heartbeat = time(NULL);
+
+        if (0 == id)
+                is_leader = 1;
 
         return 0;
 err_addr:
@@ -126,7 +137,7 @@ drain_socket(void)
                 type = (int *)msg;
                 fprintf(stderr, "Received message of type %d\n", *type);
                 switch (*type) {
-                case 1:
+                case HB:
                         fprintf(stderr, "Draining HBMessage\n");
                         hbm = malloc(sizeof(HBMessage));
                         memcpy(hbm, msg, sizeof(HBMessage));
@@ -145,10 +156,12 @@ heartbeat(void)
         int i;
         time_t currtime = time(NULL);
         HBMessage mybeat = {
-                .type = 1,
+                .type = HB,
                 .id = id,
                 };
         HBMessage *hbm;
+        JoinMessage *joinm;
+        LeaveMessage *leavem;
 
         // send heartbeat
         if (difftime(currtime, last_heartbeat) > timeout) {
@@ -164,6 +177,17 @@ heartbeat(void)
         while (hbm = q_pop(hb_q)) {
                 fprintf(stderr, "Received HBMessage from %d\n", hbm->id);
                 hb_vec[hbm->id] = time(NULL);
+
+                // if alive[hbm->id] == 0, set to 1 push JOIN op to op_q
+                if (is_leader && 0 == alive[hbm->id]) {
+                        alive[hbm->id] = 1;
+
+                        joinm = malloc(sizeof(JoinMessage));
+                        joinm->type = JOIN;
+                        joinm->id = hbm->id;
+                        q_push(op_q, joinm);
+                }
+
                 free(hbm);
         }
 
@@ -171,6 +195,29 @@ heartbeat(void)
         for (i=0; i<nhosts; i++) {
                 if (difftime(currtime, hb_vec[i]) > 2*timeout) {
                         fprintf(stdout, "Peer %d not reachable\n", i);
+
+                        // if alive[i] == 1 set to 0 and push LEAVE to op_q
+                        if (is_leader && 1 == alive[i]) {
+                                alive[i] = 0;
+
+                                leavem = malloc(sizeof(LeaveMessage));
+                                leavem->type = LEAVE;
+                                leavem->id = i;
+                                q_push(op_q, leavem);
+                        }
+                }
+        }
+}
+
+static void
+process_op_q(void)
+{
+        int *type;
+
+        while (type = q_pop(op_q)) {
+                switch (*type) {
+                default:
+                        abort();
                 }
         }
 }
@@ -183,4 +230,7 @@ ch_tick(void)
 
         // process heartbeats
         heartbeat();
+
+        // do membership protocol
+        process_op_q();
 }
