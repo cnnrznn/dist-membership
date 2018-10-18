@@ -12,8 +12,8 @@ new_op(int _type, int _pid, int n)
 
         op->timeouts = calloc(n, sizeof(double));
         op->timers = calloc(n, sizeof(time_t));
-        op->acks = malloc(n * sizeof(char));
-        op->facks = malloc(n * sizeof(char));
+        op->acks = calloc(n, sizeof(char));
+        op->facks = calloc(n, sizeof(char));
         op->nacks = 0;
         op->nfacks = 0;
 

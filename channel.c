@@ -224,7 +224,7 @@ send_req(Operation *op)
                 .type = NEWVIEW,
                 .view_id = view_id,
         };
-        char buf[MSGLEN] = { 0 };
+        char buf[MSGBUFLEN] = { 0 };
 
         for (i=0; i<nhosts; i++) {
                 if (0 == alive[i])
@@ -236,12 +236,16 @@ send_req(Operation *op)
                 op->timers[i] = currtime;
 
                 if (op->nacks < nhosts) {
+                        if (1 == op->acks[i])
+                                continue;
                         sendto(sk, &rm, sizeof(ReqMessage), 0, &hostaddrs[i], hostaddrslen[i]);
                 }
                 else if (op->nfacks < nhosts) {
+                        if (1 == op->facks[i])
+                                continue;
                         memcpy(buf, &nvm, sizeof(NewVMessage));
                         memcpy(buf+sizeof(NewVMessage), alive, nhosts*sizeof(char));
-                        sendto(sk, &buf, MSGLEN*sizeof(char), 0, &hostaddrs[i], hostaddrslen[i]);
+                        sendto(sk, &buf, MSGBUFLEN*sizeof(char), 0, &hostaddrs[i], hostaddrslen[i]);
                 }
                 else {
                         q_pop(op_q);

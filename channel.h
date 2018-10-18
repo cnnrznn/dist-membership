@@ -3,8 +3,6 @@
 
 #include "messages.h"
 
-#define MSGLEN 1024
-
 int ch_init(char *, char *, int, size_t);
 int ch_fini(void);
 
