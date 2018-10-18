@@ -1,10 +1,13 @@
 #ifndef _MSG_H
 #define _MSG_H
 
+#include <stdint.h>
+
 #define MSGBUFLEN 1024
 
 #define HB              1
 #define REQ             2
+#define NEWVIEW         3
 
 typedef struct {
         int type;                       // 1
@@ -13,20 +16,15 @@ typedef struct {
 
 typedef struct {
         int type;
-        int id;
-} JoinMessage;
-
-typedef struct {
-        int type;
-        int id;
-} LeaveMessage;
-
-typedef struct {
-        int type;
-        int req_id;
-        int view_id;
+        uint32_t req_id;
+        uint32_t view_id;
         int op;
-        int newmember;
+        int pid;
 } ReqMessage;
+
+typedef struct {
+        int type;
+        uint32_t view_id;
+} NewVMessage;
 
 #endif /* _MSG_H */

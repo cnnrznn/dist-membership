@@ -28,9 +28,11 @@ static time_t last_heartbeat;
 static time_t *hb_vec;
 static queue *hb_q;
 static queue *op_q;
+static queue *pend_q;
 static char *alive;
 
 static uint32_t req_id = 0;
+static uint32_t view_id = 0;
 
 static char is_leader = 0;
 
@@ -104,6 +106,7 @@ ch_init(char *hostfile, char *port, int _id, size_t _timeout)
 
         hb_q = q_alloc(1024);
         op_q = q_alloc(1024);
+        pend_q = q_alloc(1024);
 
         last_heartbeat = time(NULL);
 
@@ -205,18 +208,48 @@ heartbeat(void)
 }
 
 static void
+send_req(Operation *op)
+{
+        int i;
+        time_t currtime = time(NULL);
+        ReqMessage rm = {
+                .type = REQ,
+                .req_id = op->op_id,
+                .view_id = view_id,
+                .op = op->type,
+                .pid = op->pid,
+        };
+        NewVMessage nvm = {
+                .type = NEWVIEW,
+                .view_id = view_id,
+        };
+
+        for (i=0; i<nhosts; i++) {
+                if (0 == alive[i])
+                        continue;               // not in the group
+                if (timeout > difftime(currtime, op->timeouts[i]))
+                        continue;               // timeout not expired
+
+                if (op->nacks < nhosts) {
+                }
+                else if (op->nfacks < nhosts) {
+                }
+                else {
+                        q_pop(op_q);
+                        free_op(op);
+                }
+        }
+}
+
+static void
 process_op_q(void)
 {
         Operation *op;
 
-        while (op = q_peek(op_q)) {
-                switch (op->type) {
-                case JOIN:
-                        break;
-                default:
-                        abort();
-                }
-        }
+        if (NULL == (op = q_peek(op_q)))
+                return;
+
+        send_req(op);
 }
 
 void

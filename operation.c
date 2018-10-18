@@ -17,3 +17,14 @@ new_op(int _type, int _pid, int n)
 
         return op;
 }
+
+void
+free_op(Operation *op)
+{
+        free(op->timeouts);
+        free(op->acks);
+        free(op->facks);
+        free(op);
+
+        return;
+}
