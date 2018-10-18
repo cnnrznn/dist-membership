@@ -11,7 +11,8 @@ typedef struct {
         int pid;
 
         uint32_t op_id;
-        time_t *timeouts;
+        double *timeouts;
+        time_t *timers;
         char *acks;
         char *facks;
         int nacks, nfacks;

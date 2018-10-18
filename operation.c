@@ -9,7 +9,9 @@ new_op(int _type, int _pid, int n)
 
         op->type = _type;
         op->pid = _pid;
-        op->timeouts = malloc(n * sizeof(time_t));
+
+        op->timeouts = calloc(n, sizeof(double));
+        op->timers = calloc(n, sizeof(time_t));
         op->acks = malloc(n * sizeof(char));
         op->facks = malloc(n * sizeof(char));
         op->nacks = 0;
@@ -22,6 +24,7 @@ void
 free_op(Operation *op)
 {
         free(op->timeouts);
+        free(op->timers);
         free(op->acks);
         free(op->facks);
         free(op);

@@ -13,6 +13,7 @@
 #include "queue.h"
 
 #define HOSTS_MAX 1024
+#define TIMEOUT_FACTOR 2
 
 static int sk = -1;
 static struct addrinfo hints, *skaddr;
@@ -223,16 +224,24 @@ send_req(Operation *op)
                 .type = NEWVIEW,
                 .view_id = view_id,
         };
+        char buf[MSGLEN] = { 0 };
 
         for (i=0; i<nhosts; i++) {
                 if (0 == alive[i])
                         continue;               // not in the group
-                if (timeout > difftime(currtime, op->timeouts[i]))
+                if (op->timeouts[i] > difftime(currtime, op->timers[i]))
                         continue;               // timeout not expired
 
+                op->timeouts[i] *= TIMEOUT_FACTOR;
+                op->timers[i] = currtime;
+
                 if (op->nacks < nhosts) {
+                        sendto(sk, &rm, sizeof(ReqMessage), 0, &hostaddrs[i], hostaddrslen[i]);
                 }
                 else if (op->nfacks < nhosts) {
+                        memcpy(buf, &nvm, sizeof(NewVMessage));
+                        memcpy(buf+sizeof(NewVMessage), alive, nhosts*sizeof(char));
+                        sendto(sk, &buf, MSGLEN*sizeof(char), 0, &hostaddrs[i], hostaddrslen[i]);
                 }
                 else {
                         q_pop(op_q);
