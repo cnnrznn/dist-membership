@@ -35,7 +35,7 @@ static char *alive;
 static uint32_t req_id = 0;
 static uint32_t view_id = 0;
 
-static char is_leader = 0;
+static char leader = 0;
 
 int
 ch_init(char *hostfile, char *port, int _id, size_t _timeout)
@@ -111,9 +111,6 @@ ch_init(char *hostfile, char *port, int _id, size_t _timeout)
 
         last_heartbeat = time(NULL);
 
-        if (0 == id)
-                is_leader = 1;
-
         return 0;
 err_addr:
         freeaddrinfo(skaddr);
@@ -150,6 +147,12 @@ drain_socket(void)
                         memcpy(hbm, msg, sizeof(HBMessage));
                         q_push(hb_q, hbm);
                         break;
+                case REQ:
+                        fprintf(stderr, "Draining ReqMessage\n");
+                        break;
+                case NEWVIEW:
+                        fprintf(stderr, "Draining NewVMessage\n");
+                        break;
                 default:
                         // TODO some error handling
                         abort();
@@ -184,7 +187,7 @@ heartbeat(void)
                 hb_vec[hbm->id] = time(NULL);
 
                 // if alive[hbm->id] == 0, set to 1 push JOIN op to op_q
-                if (is_leader && 0 == alive[hbm->id]) {
+                if (id == leader && 0 == alive[hbm->id]) {
                         alive[hbm->id] = 1;
 
                         q_push(op_q, new_op(JOIN, hbm->id, nhosts));
@@ -199,7 +202,7 @@ heartbeat(void)
                         fprintf(stdout, "Peer %d not reachable\n", i);
 
                         // if alive[i] == 1 set to 0 and push LEAVE to op_q
-                        if (is_leader && 1 == alive[i]) {
+                        if (id == leader && 1 == alive[i]) {
                                 alive[i] = 0;
 
                                 q_push(op_q, new_op(LEAVE, i, nhosts));
@@ -237,12 +240,12 @@ send_req(Operation *op)
 
                 if (op->nacks < nhosts) {
                         if (1 == op->acks[i])
-                                continue;
+                                continue;       // already have ack
                         sendto(sk, &rm, sizeof(ReqMessage), 0, &hostaddrs[i], hostaddrslen[i]);
                 }
                 else if (op->nfacks < nhosts) {
                         if (1 == op->facks[i])
-                                continue;
+                                continue;       // already have fack
                         memcpy(buf, &nvm, sizeof(NewVMessage));
                         memcpy(buf+sizeof(NewVMessage), alive, nhosts*sizeof(char));
                         sendto(sk, &buf, MSGBUFLEN*sizeof(char), 0, &hostaddrs[i], hostaddrslen[i]);
