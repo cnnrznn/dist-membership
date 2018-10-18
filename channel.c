@@ -9,6 +9,7 @@
 #include <unistd.h>
 
 #include "channel.h"
+#include "operation.h"
 #include "queue.h"
 
 #define HOSTS_MAX 1024
@@ -28,6 +29,8 @@ static time_t *hb_vec;
 static queue *hb_q;
 static queue *op_q;
 static char *alive;
+
+static uint32_t req_id = 0;
 
 static char is_leader = 0;
 
@@ -160,8 +163,6 @@ heartbeat(void)
                 .id = id,
                 };
         HBMessage *hbm;
-        JoinMessage *joinm;
-        LeaveMessage *leavem;
 
         // send heartbeat
         if (difftime(currtime, last_heartbeat) > timeout) {
@@ -182,10 +183,7 @@ heartbeat(void)
                 if (is_leader && 0 == alive[hbm->id]) {
                         alive[hbm->id] = 1;
 
-                        joinm = malloc(sizeof(JoinMessage));
-                        joinm->type = JOIN;
-                        joinm->id = hbm->id;
-                        q_push(op_q, joinm);
+                        q_push(op_q, new_op(JOIN, hbm->id, nhosts));
                 }
 
                 free(hbm);
@@ -200,10 +198,7 @@ heartbeat(void)
                         if (is_leader && 1 == alive[i]) {
                                 alive[i] = 0;
 
-                                leavem = malloc(sizeof(LeaveMessage));
-                                leavem->type = LEAVE;
-                                leavem->id = i;
-                                q_push(op_q, leavem);
+                                q_push(op_q, new_op(LEAVE, i, nhosts));
                         }
                 }
         }
@@ -212,10 +207,12 @@ heartbeat(void)
 static void
 process_op_q(void)
 {
-        int *type;
+        Operation *op;
 
-        while (type = q_pop(op_q)) {
-                switch (*type) {
+        while (op = q_peek(op_q)) {
+                switch (op->type) {
+                case JOIN:
+                        break;
                 default:
                         abort();
                 }

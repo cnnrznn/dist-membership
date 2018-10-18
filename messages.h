@@ -4,8 +4,7 @@
 #define MSGBUFLEN 1024
 
 #define HB              1
-#define JOIN            2
-#define LEAVE           3
+#define REQ             2
 
 typedef struct {
         int type;                       // 1
@@ -21,5 +20,13 @@ typedef struct {
         int type;
         int id;
 } LeaveMessage;
+
+typedef struct {
+        int type;
+        int req_id;
+        int view_id;
+        int op;
+        int newmember;
+} ReqMessage;
 
 #endif /* _MSG_H */
