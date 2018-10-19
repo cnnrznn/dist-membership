@@ -7,6 +7,7 @@ static uint32_t op_id = 0;
 Operation *
 new_op(int _type, int _pid, int n)
 {
+        int i;
         Operation *op = malloc(sizeof(Operation));
 
         op->type = _type;
@@ -14,6 +15,9 @@ new_op(int _type, int _pid, int n)
         op->op_id = ++op_id;
 
         op->timeouts = calloc(n, sizeof(double));
+        for (i=0; i<n; i++)
+                op->timeouts[i] = 2;
+
         op->timers = calloc(n, sizeof(time_t));
         op->acks = calloc(n, sizeof(char));
         op->facks = calloc(n, sizeof(char));
