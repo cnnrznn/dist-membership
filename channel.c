@@ -60,6 +60,11 @@ static void
 process_pend_op(PendingOp newpop)
 {
         PendingOp *pop;
+        OkMessage okm;
+
+        if (newpop.view_id != view_id)
+                return; // don't process requests for different view
+
         if (NULL == (pop = q_search(pend_q, &newpop, comp_pend_op))) {
                 // push new pending op into queue
                 pop = malloc(sizeof(PendingOp));
@@ -69,6 +74,11 @@ process_pend_op(PendingOp newpop)
         }
 
         // respond with OK
+        okm.type = OK;
+        okm.req_id = pop->op_id;
+        okm.view_id = pop->view_id;
+
+        sendto(sk, &okm, sizeof(OkMessage), 0, &hostaddrs[leader], hostaddrslen[leader]);
 }
 
 static void
@@ -188,6 +198,9 @@ drain_socket(void)
                         hbm = malloc(sizeof(HBMessage));
                         memcpy(hbm, msg, sizeof(HBMessage));
                         q_push(hb_q, hbm);
+                        break;
+                case OK:
+                        fprintf(stderr, "Draining OkMessage\n");
                         break;
                 case REQ:
                         fprintf(stderr, "Draining ReqMessage\n");
