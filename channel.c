@@ -31,6 +31,7 @@ static queue *hb_q;
 static queue *op_q;
 static queue *pend_q;
 static char *alive;
+static int nalive = 1;
 
 static uint32_t req_id = 0;
 static uint32_t view_id = 0;
@@ -237,8 +238,6 @@ heartbeat(void)
 
                 // if alive[hbm->id] == 0, set to 1 push JOIN op to op_q
                 if (id == leader && 0 == alive[hbm->id]) {
-                        alive[hbm->id] = 1;
-
                         q_push(op_q, new_op(JOIN, hbm->id, nhosts));
                 }
 
@@ -253,6 +252,7 @@ heartbeat(void)
                         // if alive[i] == 1 set to 0 and push LEAVE to op_q
                         if (id == leader && 1 == alive[i]) {
                                 alive[i] = 0;
+                                nalive--;
 
                                 q_push(op_q, new_op(LEAVE, i, nhosts));
                         }
@@ -287,12 +287,12 @@ send_req(Operation *op)
                 op->timeouts[i] *= TIMEOUT_FACTOR;
                 op->timers[i] = currtime;
 
-                if (op->nacks < nhosts) {
+                if (op->nacks < nalive) {
                         if (1 == op->acks[i])
                                 continue;       // already have ack
                         sendto(sk, &rm, sizeof(ReqMessage), 0, &hostaddrs[i], hostaddrslen[i]);
                 }
-                else if (op->nfacks < nhosts) {
+                else if (op->nfacks < nalive) {
                         if (1 == op->facks[i])
                                 continue;       // already have fack
                         memcpy(buf, &nvm, sizeof(NewVMessage));
