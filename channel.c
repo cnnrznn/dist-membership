@@ -86,6 +86,11 @@ process_newvm(NewVMessage *newvm)
 {
 }
 
+static void
+process_okm(OkMessage *okm)
+{
+}
+
 int
 ch_init(char *hostfile, char *port, int _id, size_t _timeout)
 {
@@ -201,6 +206,7 @@ drain_socket(void)
                         break;
                 case OK:
                         fprintf(stderr, "Draining OkMessage\n");
+                        process_okm((OkMessage *)msg);
                         break;
                 case REQ:
                         fprintf(stderr, "Draining ReqMessage\n");
@@ -251,7 +257,7 @@ heartbeat(void)
 
                 // if alive[hbm->id] == 0, set to 1 push JOIN op to op_q
                 if (id == leader && 0 == alive[hbm->id]) {
-                        q_push(op_q, new_op(JOIN, hbm->id, nhosts));
+                        q_push(op_q, new_op(JOIN, hbm->id, nhosts, view_id));
                 }
 
                 free(hbm);
@@ -267,7 +273,7 @@ heartbeat(void)
                                 alive[i] = 0;
                                 nalive--;
 
-                                q_push(op_q, new_op(LEAVE, i, nhosts));
+                                q_push(op_q, new_op(LEAVE, i, nhosts, view_id));
                         }
                 }
         }
