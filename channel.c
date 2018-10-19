@@ -37,6 +37,44 @@ static uint32_t view_id = 0;
 
 static char leader = 0;
 
+static char
+comp_pend_op(void *a, void *b)
+{
+        PendingOp *x = a;
+        PendingOp *y = b;
+
+        if (x->view_id < y->view_id)
+                return 1;
+        else if (x->view_id > y->view_id)
+                return -1;
+        else if (x->op_id < y->op_id)
+                return 1;
+        else if (x->op_id > y->op_id)
+                return -1;
+        else
+                return 0;
+}
+
+static void
+process_pend_op(PendingOp newpop)
+{
+        PendingOp *pop;
+        if (NULL == (pop = q_search(pend_q, &newpop, comp_pend_op))) {
+                // push new pending op into queue
+                pop = malloc(sizeof(PendingOp));
+                memcpy(pop, &newpop, sizeof(PendingOp));
+                q_push(pend_q, pop);
+                q_sort(pend_q, comp_pend_op);
+        }
+
+        // respond with OK
+}
+
+static void
+process_newvm(NewVMessage *newvm)
+{
+}
+
 int
 ch_init(char *hostfile, char *port, int _id, size_t _timeout)
 {
@@ -135,6 +173,9 @@ drain_socket(void)
         int fromlen = sizeof(struct sockaddr_storage);
         int *type;
         HBMessage *hbm;
+        PendingOp pop;
+        ReqMessage *reqm;
+        NewVMessage *nvm;
 
         while (recvfrom(sk, msg, MSGBUFLEN, MSG_DONTWAIT,
                         (struct sockaddr *)&from, &fromlen) > 0) {
@@ -149,9 +190,17 @@ drain_socket(void)
                         break;
                 case REQ:
                         fprintf(stderr, "Draining ReqMessage\n");
+                        reqm = (ReqMessage *)msg;
+                        pop.op_id = reqm->req_id;
+                        pop.view_id = reqm->view_id;
+                        pop.type = reqm->op;
+                        pop.pid = reqm->pid;
+                        process_pend_op(pop);
                         break;
                 case NEWVIEW:
                         fprintf(stderr, "Draining NewVMessage\n");
+                        nvm = (NewVMessage *)msg;
+                        process_newvm(nvm);
                         break;
                 default:
                         // TODO some error handling

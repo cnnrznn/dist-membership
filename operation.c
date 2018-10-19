@@ -2,6 +2,8 @@
 
 #include "operation.h"
 
+static uint32_t op_id = 0;
+
 Operation *
 new_op(int _type, int _pid, int n)
 {
@@ -9,6 +11,7 @@ new_op(int _type, int _pid, int n)
 
         op->type = _type;
         op->pid = _pid;
+        op->op_id = ++op_id;
 
         op->timeouts = calloc(n, sizeof(double));
         op->timers = calloc(n, sizeof(time_t));
