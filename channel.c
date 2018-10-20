@@ -77,6 +77,7 @@ process_pend_op(PendingOp newpop)
         okm.type = OK;
         okm.req_id = pop->op_id;
         okm.view_id = pop->view_id;
+        okm.recipient = id;
 
         sendto(sk, &okm, sizeof(OkMessage), 0, &hostaddrs[leader], hostaddrslen[leader]);
 }
@@ -89,6 +90,26 @@ process_newvm(NewVMessage *newvm)
 static void
 process_okm(OkMessage *okm)
 {
+        Operation *op;
+
+        if (NULL == (op = q_peek(op_q)))
+                return; // no pending operation
+        if (okm->req_id != op->op_id || okm->view_id != op->view_id)
+                return; // ack for different operation
+
+        if (0 == op->acks[okm->recipient]) {
+                op->acks[okm->recipient] = 1;
+                op->nacks++;
+
+                if (op->nacks == nalive) {      // "turn on" the new process
+                        view_id++;
+                        alive[okm->recipient] = 1;
+                }
+        }
+        else if (op->nacks == nalive && 0 == op->facks[okm->recipient]) {
+                op->facks[okm->recipient] = 1;
+                op->nfacks++;
+        }
 }
 
 static void

@@ -32,6 +32,7 @@ typedef struct {
         int type;
         uint32_t req_id;
         uint32_t view_id;
+        int recipient;
 } OkMessage;
 
 #endif /* _MSG_H */
