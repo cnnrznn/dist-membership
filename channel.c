@@ -82,17 +82,18 @@ process_reqm(ReqMessage *reqm)
 }
 
 static void
-process_newvm(NewVMessage *nvm)
+process_nvm(NewVMessage *nvm)
 {
         int i;
+        OkMessage okm;
         char *arr = ((char*)nvm) + sizeof(NewVMessage);
 
-        if (!pendop.valid)
-                return;         // no pending operation
         if (nvm->view_id != pendop.view_id+1)
                 return;         // incorrect view id
         if (nvm->req_id != pendop.op_id)
                 return;         // incorrect request identifier
+        if (!pendop.valid)
+                goto ack;       // already updated the group
 
         view_id = nvm->view_id;
 
@@ -104,6 +105,14 @@ process_newvm(NewVMessage *nvm)
         fprintf(stdout, "]\n");
 
         pendop.valid = 0;
+
+ack:
+        okm.type = OK;
+        okm.req_id = nvm->req_id;
+        okm.view_id = view_id;
+        okm.recipient = id;
+
+        sendto(sk, &okm, sizeof(OkMessage), 0, &hostaddrs[leader], hostaddrslen[leader]);
 }
 
 static void
@@ -126,6 +135,7 @@ process_okm(OkMessage *okm)
                 if (op->nacks == nalive) {      // "turn on" the new process
                         view_id++;
                         op->nacks++;
+                        op->acks[op->pid] = 1;
                         alive[op->pid] = 1;
                         nalive++;
                 }
@@ -169,7 +179,7 @@ drain_socket(void)
                         break;
                 case NEWVIEW:
                         fprintf(stderr, "\tDraining NewVMessage\n");
-                        process_newvm((NewVMessage *)msg);
+                        process_nvm((NewVMessage *)msg);
                         break;
                 default:
                         // TODO some error handling
