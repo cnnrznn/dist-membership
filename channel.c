@@ -136,8 +136,10 @@ process_okm(OkMessage *okm)
                         op->view_id++;
                         op->nacks++;
                         op->acks[op->pid] = 1;
-                        alive[op->pid] = 1;
-                        nalive++;
+                        if (JOIN == op->type) {
+                                alive[op->pid] = 1;
+                                nalive++;
+                        }
 
                         print_view();
                 }
