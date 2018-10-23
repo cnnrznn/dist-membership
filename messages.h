@@ -26,6 +26,7 @@ typedef struct {
 typedef struct {
         int type;
         uint32_t view_id;
+        uint32_t req_id;
 } NewVMessage;
 
 typedef struct {

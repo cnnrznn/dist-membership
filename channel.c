@@ -82,8 +82,26 @@ process_reqm(ReqMessage *reqm)
 }
 
 static void
-process_newvm(NewVMessage *newvm)
+process_newvm(NewVMessage *nvm)
 {
+        int i;
+        char *arr = ((char*)nvm) + sizeof(NewVMessage);
+
+        fprintf(stderr, "%lu, %lu\n", (unsigned long)nvm, (unsigned long)arr);
+
+        return;
+
+        if (!pendop.valid)
+                return;         // no pending operation
+        if (nvm->view_id != pendop.view_id+1)
+                return;         // incorrect view id
+        if (nvm->req_id != pendop.op_id)
+                return;         // incorrect request identifier
+
+        view_id = nvm->view_id;
+
+        for (i=0; i<nhosts; i++)
+                alive[i] = arr[i];
 }
 
 static void
@@ -218,6 +236,7 @@ send_req(Operation *op)
         NewVMessage nvm = {
                 .type = NEWVIEW,
                 .view_id = view_id,
+                .req_id = op->op_id,
         };
         char buf[MSGBUFLEN] = { 0 };
 
