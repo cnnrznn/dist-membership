@@ -134,6 +134,7 @@ process_okm(OkMessage *okm)
 
                 if (op->nacks == nalive) {      // "turn on" the new process
                         view_id++;
+                        op->view_id++;
                         op->nacks++;
                         op->acks[op->pid] = 1;
                         alive[op->pid] = 1;
