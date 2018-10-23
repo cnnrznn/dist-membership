@@ -223,7 +223,7 @@ heartbeat(void)
         }
 }
 
-static void
+static int
 send_req(Operation *op)
 {
         int i;
@@ -264,10 +264,11 @@ send_req(Operation *op)
                         sendto(sk, &buf, MSGBUFLEN*sizeof(char), 0, &hostaddrs[i], hostaddrslen[i]);
                 }
                 else {
-                        q_pop(op_q);
-                        free_op(op);
+                        return 1;
                 }
         }
+
+        return 0;
 }
 
 static void
@@ -278,7 +279,10 @@ process_op_q(void)
         if (NULL == (op = q_peek(op_q)))
                 return;
 
-        send_req(op);
+        if (send_req(op)) {
+                q_pop(op_q);
+                free_op(op);
+        }
 }
 
 void
