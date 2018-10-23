@@ -202,7 +202,7 @@ heartbeat(void)
         // send heartbeat
         if (difftime(currtime, last_heartbeat) > timeout) {
                 for (i=0; i<nhosts; i++) {
-                        fprintf(stderr, "Sending HBMessage to %d\n", i);
+                        //fprintf(stderr, "Sending HBMessage to %d\n", i);
                         sendto(sk, &mybeat, sizeof(HBMessage), 0, &hostaddrs[i], hostaddrslen[i]);
                 }
 
@@ -211,7 +211,7 @@ heartbeat(void)
 
         // process heartbeat queue
         while (hbm = q_pop(hb_q)) {
-                fprintf(stderr, "Received HBMessage from %d\n", hbm->id);
+                //fprintf(stderr, "Received HBMessage from %d\n", hbm->id);
                 hb_vec[hbm->id] = time(NULL);
 
                 // if alive[hbm->id] == 0, set to 1 push JOIN op to op_q
@@ -272,11 +272,11 @@ send_req(Operation *op)
                         sendto(sk, &rm, sizeof(ReqMessage), 0, &hostaddrs[i], hostaddrslen[i]);
                 }
                 else if (op->nfacks < nalive) {
-                        fprintf(stderr, "Sending NewVMessage to %d\n", i);
                         if (1 == op->facks[i])
                                 continue;       // already have fack
                         memcpy(buf, &nvm, sizeof(NewVMessage));
                         memcpy(buf+sizeof(NewVMessage), alive, nhosts*sizeof(char));
+                        fprintf(stderr, "Sending NewVMessage to %d\n", i);
                         sendto(sk, &buf, MSGBUFLEN*sizeof(char), 0, &hostaddrs[i], hostaddrslen[i]);
                 }
                 else {
