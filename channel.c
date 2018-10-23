@@ -29,7 +29,6 @@ static time_t last_heartbeat;
 static time_t *hb_vec;
 static queue *hb_q;
 static queue *op_q;
-static queue *pend_q;
 static char *alive;
 static int nalive = 1;
 
@@ -37,6 +36,8 @@ static uint32_t req_id = 0;
 static uint32_t view_id = 0;
 
 static char leader = 0;
+
+static PendingOp pendop;
 
 static char
 comp_pend_op(void *a, void *b)
@@ -57,26 +58,23 @@ comp_pend_op(void *a, void *b)
 }
 
 static void
-process_pend_op(PendingOp newpop)
+process_reqm(ReqMessage *reqm)
 {
-        PendingOp *pop;
         OkMessage okm;
 
-        if (newpop.view_id != view_id)
+        if (reqm->view_id != view_id)
                 return; // don't process requests for different view
 
-        if (NULL == (pop = q_search(pend_q, &newpop, comp_pend_op))) {
-                // push new pending op into queue
-                pop = malloc(sizeof(PendingOp));
-                memcpy(pop, &newpop, sizeof(PendingOp));
-                q_push(pend_q, pop);
-                q_sort(pend_q, comp_pend_op);
-        }
+        // store pending operation
+        pendop.op_id = reqm->req_id;
+        pendop.view_id = view_id;
+        pendop.type = reqm->op;
+        pendop.pid = reqm->pid;
 
         // respond with OK
         okm.type = OK;
-        okm.req_id = pop->op_id;
-        okm.view_id = pop->view_id;
+        okm.req_id = reqm->req_id;
+        okm.view_id = view_id;
         okm.recipient = id;
 
         sendto(sk, &okm, sizeof(OkMessage), 0, &hostaddrs[leader], hostaddrslen[leader]);
@@ -85,15 +83,6 @@ process_pend_op(PendingOp newpop)
 static void
 process_newvm(NewVMessage *newvm)
 {
-        PendingOp *pop;
-
-        if (newvm->view_id != view_id + 1)
-                return; // new view message not related to this stage
-
-        if (NULL == (pop = q_peek(pend_q)))
-                return; // no pending op
-
-        view_id++;
 }
 
 static void
@@ -150,7 +139,7 @@ drain_socket(void)
                         break;
                 case REQ:
                         fprintf(stderr, "\tDraining ReqMessage\n");
-                        //process_reqm((ReqMessage *)msg);
+                        process_reqm((ReqMessage *)msg);
                         break;
                 case NEWVIEW:
                         fprintf(stderr, "\tDraining NewVMessage\n");
@@ -353,7 +342,6 @@ ch_init(char *hostfile, char *port, int _id, size_t _timeout)
 
         hb_q = q_alloc(1024);
         op_q = q_alloc(1024);
-        pend_q = q_alloc(1024);
 
         last_heartbeat = time(NULL);
 
