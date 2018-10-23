@@ -259,6 +259,7 @@ send_req(Operation *op)
                         sendto(sk, &rm, sizeof(ReqMessage), 0, &hostaddrs[i], hostaddrslen[i]);
                 }
                 else if (op->nfacks < nalive) {
+                        fprintf(stderr, "Sending NewVMessage to %d\n", i);
                         if (1 == op->facks[i])
                                 continue;       // already have fack
                         memcpy(buf, &nvm, sizeof(NewVMessage));
