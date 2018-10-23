@@ -87,10 +87,6 @@ process_newvm(NewVMessage *nvm)
         int i;
         char *arr = ((char*)nvm) + sizeof(NewVMessage);
 
-        fprintf(stderr, "%lu, %lu\n", (unsigned long)nvm, (unsigned long)arr);
-
-        return;
-
         if (!pendop.valid)
                 return;         // no pending operation
         if (nvm->view_id != pendop.view_id+1)
@@ -118,9 +114,13 @@ process_okm(OkMessage *okm)
                 op->acks[okm->recipient] = 1;
                 op->nacks++;
 
+                op->timeouts[okm->recipient] = 2;
+                op->timers[okm->recipient] = 0;
+
                 if (op->nacks == nalive) {      // "turn on" the new process
                         view_id++;
                         alive[okm->recipient] = 1;
+                        nalive++;
                 }
         }
         else if (op->nacks >= nalive && 0 == op->facks[okm->recipient]) {
