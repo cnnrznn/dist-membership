@@ -37,6 +37,16 @@ static uint32_t view_id = 0;
 
 static char leader = 0;
 
+static void
+print_view(void)
+{
+        int i;
+
+        fprintf(stdout, "View %u: [", view_id);
+        for (i=0; i<nhosts; i++)
+                fprintf(stdout, "%d, ", alive[i]);
+        fprintf(stdout, "]\n");
+}
 
 static char
 comp_pend_op(void *a, void *b)
@@ -82,13 +92,7 @@ process_nvm(NewVMessage *nvm)
 
         if (view_id < nvm->view_id) {
                 view_id = nvm->view_id;
-
-                fprintf(stdout, "New group: [");
-                for (i=0; i<nhosts; i++) {
-                        alive[i] = arr[i];
-                        fprintf(stdout, "%d, ", arr[i]);
-                }
-                fprintf(stdout, "]\n");
+                print_view();
         }
 
         okm.type = OK;
@@ -123,6 +127,8 @@ process_okm(OkMessage *okm)
                         op->acks[op->pid] = 1;
                         alive[op->pid] = 1;
                         nalive++;
+
+                        print_view();
                 }
         }
         else if (op->nacks >= nalive && 0 == op->facks[okm->recipient]) {
