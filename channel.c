@@ -85,6 +85,15 @@ process_pend_op(PendingOp newpop)
 static void
 process_newvm(NewVMessage *newvm)
 {
+        PendingOp *pop;
+
+        if (newvm->view_id != view_id + 1)
+                return; // new view message not related to this stage
+
+        if (NULL == (pop = q_peek(pend_q)))
+                return; // no pending op
+
+        view_id++;
 }
 
 static void
@@ -106,7 +115,7 @@ process_okm(OkMessage *okm)
                         alive[okm->recipient] = 1;
                 }
         }
-        else if (op->nacks == nalive && 0 == op->facks[okm->recipient]) {
+        else if (op->nacks >= nalive && 0 == op->facks[okm->recipient]) {
                 op->facks[okm->recipient] = 1;
                 op->nfacks++;
         }
@@ -130,28 +139,22 @@ drain_socket(void)
                 fprintf(stderr, "Received message of type %d\n", *type);
                 switch (*type) {
                 case HB:
-                        fprintf(stderr, "Draining HBMessage\n");
+                        fprintf(stderr, "\tDraining HBMessage\n");
                         hbm = malloc(sizeof(HBMessage));
                         memcpy(hbm, msg, sizeof(HBMessage));
                         q_push(hb_q, hbm);
                         break;
                 case OK:
-                        fprintf(stderr, "Draining OkMessage\n");
-                        process_okm((OkMessage *)msg);
+                        fprintf(stderr, "\tDraining OkMessage\n");
+                        //process_okm((OkMessage *)msg);
                         break;
                 case REQ:
-                        fprintf(stderr, "Draining ReqMessage\n");
-                        reqm = (ReqMessage *)msg;
-                        pop.op_id = reqm->req_id;
-                        pop.view_id = reqm->view_id;
-                        pop.type = reqm->op;
-                        pop.pid = reqm->pid;
-                        process_pend_op(pop);
+                        fprintf(stderr, "\tDraining ReqMessage\n");
+                        //process_reqm((ReqMessage *)msg);
                         break;
                 case NEWVIEW:
-                        fprintf(stderr, "Draining NewVMessage\n");
-                        nvm = (NewVMessage *)msg;
-                        process_newvm(nvm);
+                        fprintf(stderr, "\tDraining NewVMessage\n");
+                        //process_newvm((NewVMessage *)msg);
                         break;
                 default:
                         // TODO some error handling
