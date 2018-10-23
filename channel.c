@@ -102,6 +102,8 @@ process_newvm(NewVMessage *nvm)
                 fprintf(stdout, "%d, ", arr[i]);
         }
         fprintf(stdout, "]\n");
+
+        pendop.valid = 0;
 }
 
 static void
