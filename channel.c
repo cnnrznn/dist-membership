@@ -162,7 +162,7 @@ drain_socket(void)
                         break;
                 case NEWVIEW:
                         fprintf(stderr, "\tDraining NewVMessage\n");
-                        //process_newvm((NewVMessage *)msg);
+                        process_newvm((NewVMessage *)msg);
                         break;
                 default:
                         // TODO some error handling
