@@ -96,8 +96,12 @@ process_newvm(NewVMessage *nvm)
 
         view_id = nvm->view_id;
 
-        for (i=0; i<nhosts; i++)
+        fprintf(stdout, "New group: [");
+        for (i=0; i<nhosts; i++) {
                 alive[i] = arr[i];
+                fprintf(stdout, "%d, ", arr[i]);
+        }
+        fprintf(stdout, "]\n");
 }
 
 static void
