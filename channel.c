@@ -37,7 +37,7 @@ static uint32_t view_id = 0;
 
 static char leader = 0;
 
-static PendingOp pendop;
+static PendingOp pendop = { .valid=0 };
 
 static char
 comp_pend_op(void *a, void *b)
@@ -66,6 +66,7 @@ process_reqm(ReqMessage *reqm)
                 return; // don't process requests for different view
 
         // store pending operation
+        pendop.valid = 1;
         pendop.op_id = reqm->req_id;
         pendop.view_id = view_id;
         pendop.type = reqm->op;

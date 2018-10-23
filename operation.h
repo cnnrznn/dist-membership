@@ -20,6 +20,7 @@ typedef struct {
 } Operation;
 
 typedef struct {
+        int valid;                      // is there a current pending operation?
         uint32_t op_id;
         uint32_t view_id;
         int type;
