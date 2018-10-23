@@ -37,6 +37,8 @@ static uint32_t view_id = 0;
 
 static char leader = 0;
 
+static PendingOp pendop;
+
 static void
 print_view(void)
 {
@@ -73,6 +75,12 @@ process_reqm(ReqMessage *reqm)
 
         if (reqm->view_id != view_id)
                 return; // don't process requests for different view
+
+        // save pending request
+        pendop.op_id = reqm->req_id;
+        pendop.view_id = reqm->view_id;
+        pendop.type = reqm->op;
+        pendop.pid = reqm->pid;
 
         // respond with OK
         okm.type = OK;
