@@ -135,7 +135,7 @@ drain_socket(void)
                         break;
                 case OK:
                         fprintf(stderr, "\tDraining OkMessage\n");
-                        //process_okm((OkMessage *)msg);
+                        process_okm((OkMessage *)msg);
                         break;
                 case REQ:
                         fprintf(stderr, "\tDraining ReqMessage\n");
