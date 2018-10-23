@@ -37,7 +37,6 @@ static uint32_t view_id = 0;
 
 static char leader = 0;
 
-static PendingOp pendop = { .valid=0 };
 
 static char
 comp_pend_op(void *a, void *b)
@@ -65,13 +64,6 @@ process_reqm(ReqMessage *reqm)
         if (reqm->view_id != view_id)
                 return; // don't process requests for different view
 
-        // store pending operation
-        pendop.valid = 1;
-        pendop.op_id = reqm->req_id;
-        pendop.view_id = view_id;
-        pendop.type = reqm->op;
-        pendop.pid = reqm->pid;
-
         // respond with OK
         okm.type = OK;
         okm.req_id = reqm->req_id;
@@ -88,25 +80,17 @@ process_nvm(NewVMessage *nvm)
         OkMessage okm;
         char *arr = ((char*)nvm) + sizeof(NewVMessage);
 
-        if (nvm->view_id != pendop.view_id+1)
-                return;         // incorrect view id
-        if (nvm->req_id != pendop.op_id)
-                return;         // incorrect request identifier
-        if (!pendop.valid)
-                goto ack;       // already updated the group
+        if (view_id < nvm->view_id) {
+                view_id = nvm->view_id;
 
-        view_id = nvm->view_id;
-
-        fprintf(stdout, "New group: [");
-        for (i=0; i<nhosts; i++) {
-                alive[i] = arr[i];
-                fprintf(stdout, "%d, ", arr[i]);
+                fprintf(stdout, "New group: [");
+                for (i=0; i<nhosts; i++) {
+                        alive[i] = arr[i];
+                        fprintf(stdout, "%d, ", arr[i]);
+                }
+                fprintf(stdout, "]\n");
         }
-        fprintf(stdout, "]\n");
 
-        pendop.valid = 0;
-
-ack:
         okm.type = OK;
         okm.req_id = nvm->req_id;
         okm.view_id = view_id;
@@ -277,7 +261,6 @@ send_req(Operation *op)
                                 continue;       // already have fack
                         memcpy(buf, &nvm, sizeof(NewVMessage));
                         memcpy(buf+sizeof(NewVMessage), alive, nhosts*sizeof(char));
-                        fprintf(stderr, "Sending NewVMessage to %d\n", i);
                         sendto(sk, &buf, MSGBUFLEN*sizeof(char), 0, &hostaddrs[i], hostaddrslen[i]);
                 }
                 else {
