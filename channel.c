@@ -91,6 +91,9 @@ process_nvm(NewVMessage *nvm)
         char *arr = ((char*)nvm) + sizeof(NewVMessage);
 
         if (view_id < nvm->view_id) {
+                for (i=0; i<nhosts; i++)
+                        alive[i] = arr[i];
+
                 view_id = nvm->view_id;
                 print_view();
         }
