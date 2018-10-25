@@ -135,7 +135,7 @@ process_okm(OkMessage *okm)
                 op->timeouts[okm->recipient] = 2;
                 op->timers[okm->recipient] = 0;
 
-                if (op->nacks == nalive) {      // "turn on" the new process
+                if (op->nacks >= nalive) {      // "turn on" the new process
                         view_id++;
                         op->nacks++;
                         op->acks[op->pid] = 1;
