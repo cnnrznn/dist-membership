@@ -125,7 +125,7 @@ process_okm(OkMessage *okm)
 
         if (NULL == (op = q_peek(op_q)))
                 return; // no pending operation
-        if (okm->req_id != op->op_id || okm->view_id != op->view_id)
+        if (okm->req_id != op->op_id || okm->view_id != view_id)
                 return; // ack for different operation
 
         if (0 == op->acks[okm->recipient]) {
@@ -137,7 +137,6 @@ process_okm(OkMessage *okm)
 
                 if (op->nacks == nalive) {      // "turn on" the new process
                         view_id++;
-                        op->view_id++;
                         op->nacks++;
                         op->acks[op->pid] = 1;
                         if (JOIN == op->type) {
@@ -226,7 +225,7 @@ heartbeat(void)
 
                 // if alive[hbm->id] == 0, set to 1 push JOIN op to op_q
                 if (id == leader && 0 == alive[hbm->id] && 0 == warm[hbm->id]) {
-                        q_push(op_q, new_op(JOIN, hbm->id, nhosts, view_id));
+                        q_push(op_q, new_op(JOIN, hbm->id, nhosts));
                         warm[hbm->id] = 1;
                 }
 
@@ -243,7 +242,7 @@ heartbeat(void)
                                 alive[i] = 0;
                                 nalive--;
 
-                                q_push(op_q, new_op(LEAVE, i, nhosts, view_id));
+                                q_push(op_q, new_op(LEAVE, i, nhosts));
                         }
                 }
         }

@@ -10,7 +10,6 @@ typedef struct {
         int type;
         int pid;
         uint32_t op_id;
-        uint32_t view_id;
 
         double *timeouts;
         time_t *timers;
@@ -27,7 +26,7 @@ typedef struct {
         int pid;
 } PendingOp;
 
-Operation *new_op(int _type, int _pid, int n, uint32_t _view_id);
+Operation *new_op(int _type, int _pid, int n);
 void free_op(Operation *);
 
 #endif /* _OPS_H */
