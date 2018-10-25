@@ -315,6 +315,9 @@ ch_tick(void)
 
         // do membership protocol
         process_op_q();
+
+        fflush(stdout);
+        fflush(stderr);
 }
 
 int
