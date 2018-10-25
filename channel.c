@@ -31,6 +31,7 @@ static queue *hb_q;
 static queue *op_q;
 static char *alive;
 static int nalive = 1;
+static char *warm;
 
 static uint32_t req_id = 0;
 static uint32_t view_id = 0;
@@ -142,6 +143,8 @@ process_okm(OkMessage *okm)
                         if (JOIN == op->type) {
                                 alive[op->pid] = 1;
                                 nalive++;
+
+                                warm[op->pid] = 0;
                         }
 
                         print_view();
@@ -222,8 +225,9 @@ heartbeat(void)
                 hb_vec[hbm->id] = time(NULL);
 
                 // if alive[hbm->id] == 0, set to 1 push JOIN op to op_q
-                if (id == leader && 0 == alive[hbm->id]) {
+                if (id == leader && 0 == alive[hbm->id] && 0 == warm[hbm->id]) {
                         q_push(op_q, new_op(JOIN, hbm->id, nhosts, view_id));
+                        warm[hbm->id] = 1;
                 }
 
                 free(hbm);
@@ -389,6 +393,8 @@ ch_init(char *hostfile, char *port, int _id, size_t _timeout)
 
         alive = calloc(nhosts, sizeof(char));
         alive[id] = 1;
+
+        warm = calloc(nhosts, sizeof(char));
 
         hb_vec = malloc(nhosts * sizeof(time_t));
         for (i=0; i<nhosts; i++)
