@@ -322,6 +322,7 @@ ch_tick(void)
 
         // DEBUG
         print_op_q();
+        print_view();
 
         // do membership protocol
         process_op_q();
