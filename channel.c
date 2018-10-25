@@ -50,22 +50,25 @@ print_view(void)
         fprintf(stdout, "]\n");
 }
 
-static char
-comp_pend_op(void *a, void *b)
+static void
+print_op_q(void)
 {
-        PendingOp *x = a;
-        PendingOp *y = b;
+        int i;
+        Operation *op;
 
-        if (x->view_id < y->view_id)
-                return 1;
-        else if (x->view_id > y->view_id)
-                return -1;
-        else if (x->op_id < y->op_id)
-                return 1;
-        else if (x->op_id > y->op_id)
-                return -1;
-        else
-                return 0;
+        fprintf(stderr, "OPQ: {");
+        for (i=0; i<op_q->n; i++) {
+                op = op_q->arr[i];
+                switch (op->type) {
+                case JOIN:
+                        fprintf(stderr, "JOIN: %d, ", op->pid);
+                        break;
+                case LEAVE:
+                        fprintf(stderr, "LEAVE: %d, ", op->pid);
+                        break;
+                }
+        }
+        fprintf(stderr, "}\n");
 }
 
 static void
@@ -312,6 +315,9 @@ ch_tick(void)
 
         // process heartbeats
         heartbeat();
+
+        // DEBUG
+        print_op_q();
 
         // do membership protocol
         process_op_q();
