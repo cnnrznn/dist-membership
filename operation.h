@@ -10,6 +10,7 @@ typedef struct {
         int type;
         int pid;
         uint32_t op_id;
+        char transition;
 
         double *timeouts;
         time_t *timers;

@@ -134,20 +134,6 @@ process_okm(OkMessage *okm)
 
                 op->timeouts[okm->recipient] = 2;
                 op->timers[okm->recipient] = 0;
-
-                if (op->nacks >= nalive) {      // "turn on" the new process
-                        view_id++;
-                        op->nacks++;
-                        op->acks[op->pid] = 1;
-                        if (JOIN == op->type) {
-                                alive[op->pid] = 1;
-                                nalive++;
-
-                                warm[op->pid] = 0;
-                        }
-
-                        print_view();
-                }
         }
         else if (op->nacks >= nalive && 0 == op->facks[okm->recipient]) {
                 op->facks[okm->recipient] = 1;
@@ -298,6 +284,21 @@ process_op_q(void)
 
         if (NULL == (op = q_peek(op_q)))
                 return;
+
+        if (op->nacks >= nalive && 0 == op->transition) {      // "turn on" the new process
+                op->transition = 1;
+                view_id++;
+                if (JOIN == op->type) {
+                        op->nacks++;
+                        op->acks[op->pid] = 1;
+                        alive[op->pid] = 1;
+                        nalive++;
+
+                        warm[op->pid] = 0;
+                }
+
+                print_view();
+        }
 
         if (op->nfacks < nalive) {
                 send_req(op);

@@ -13,6 +13,7 @@ new_op(int _type, int _pid, int n)
         op->type = _type;
         op->pid = _pid;
         op->op_id = ++op_id;
+        op->transition = 0;
 
         op->timeouts = calloc(n, sizeof(double));
         for (i=0; i<n; i++)
