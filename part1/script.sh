@@ -9,7 +9,8 @@ do
         tmux new-window -n $i 
         tmux send-keys -t $SESSION:$i "ssh vdi-linux-0$((29+$i)).ccs.neu.edu" Enter
         tmux send-keys -t $SESSION:$i "cd src/dist-membership" Enter
-        tmux send-keys -t $SESSION:$i "./prj2 -h hostfile -p 10000 -i $(($i-1))" Enter
+        tmux send-keys -t $SESSION:$i "sleep $((i*5))" Enter
+        tmux send-keys -t $SESSION:$i "./prj2 -h hostfile -p 10000 -i $(($i-1)) 2>stderr.$i" Enter
 done
 
 tmux attach-session -t $SESSION
