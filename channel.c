@@ -29,6 +29,7 @@ static time_t last_heartbeat;
 static time_t *hb_vec;
 static queue *hb_q;
 static queue *op_q;
+static char *view;
 static char *alive;
 static int nalive = 1;
 static char *warm;
@@ -47,7 +48,7 @@ print_view(void)
 
         fprintf(stdout, "View %u: [", view_id);
         for (i=0; i<nhosts; i++)
-                fprintf(stdout, "%d, ", alive[i]);
+                fprintf(stdout, "%d, ", view[i]);
         fprintf(stdout, "]\n");
 }
 
@@ -103,8 +104,9 @@ process_nvm(NewVMessage *nvm)
         char *arr = ((char*)nvm) + sizeof(NewVMessage);
 
         if (view_id < nvm->view_id) {
-                for (i=0; i<nhosts; i++)
-                        alive[i] = arr[i];
+                for (i=0; i<nhosts; i++) {
+                        view[i] = arr[i];
+                }
 
                 view_id = nvm->view_id;
                 print_view();
@@ -248,7 +250,7 @@ send_req(Operation *op)
         };
         NewVMessage nvm = {
                 .type = NEWVIEW,
-                .view_id = view_id,
+                .view_id = view_id + 1,
                 .req_id = op->op_id,
         };
         char buf[MSGBUFLEN] = { 0 };
@@ -270,8 +272,9 @@ send_req(Operation *op)
                 else if (op->nfacks < nalive) {
                         if (1 == op->facks[i])
                                 continue;       // already have fack
+                        view[op->pid] = op->type == JOIN ? 1 : 0;
                         memcpy(buf, &nvm, sizeof(NewVMessage));
-                        memcpy(buf+sizeof(NewVMessage), alive, nhosts*sizeof(char));
+                        memcpy(buf+sizeof(NewVMessage), view, nhosts*sizeof(char));
                         sendto(sk, &buf, MSGBUFLEN*sizeof(char), 0, &hostaddrs[i], hostaddrslen[i]);
                 }
         }
@@ -287,7 +290,6 @@ process_op_q(void)
 
         if (op->nacks >= nalive && 0 == op->transition) {      // "turn on" the new process
                 op->transition = 1;
-                view_id++;
                 if (JOIN == op->type) {
                         op->nacks++;
                         op->acks[op->pid] = 1;
@@ -296,8 +298,6 @@ process_op_q(void)
 
                         warm[op->pid] = 0;
                 }
-
-                print_view();
         }
 
         if (op->nfacks < nalive) {
@@ -392,6 +392,9 @@ ch_init(char *hostfile, char *port, int _id, size_t _timeout)
 
         alive = calloc(nhosts, sizeof(char));
         alive[id] = 1;
+
+        view = calloc(nhosts, sizeof(char));
+        view[id] = 1;
 
         warm = calloc(nhosts, sizeof(char));
 
