@@ -37,9 +37,9 @@ static char *warm;
 static uint32_t req_id = 0;
 static uint32_t view_id = 0;
 
-static char leader = 0;
+static int leader = 0;
 
-static PendingOp pendop;
+static PendingOp pendop = { .valid=0, };
 
 static void
 print_view(void)
@@ -68,6 +68,9 @@ print_op_q(void)
                 case LEAVE:
                         fprintf(stderr, "LEAVE: %d, ", op->pid);
                         break;
+                case NEWL:
+                        fprintf(stderr, "NEWL: %d, ", leader);
+                        break;
                 }
         }
         fprintf(stderr, "}\n");
@@ -82,6 +85,7 @@ process_reqm(ReqMessage *reqm)
                 return; // don't process requests for different view
 
         // save pending request
+        pendop.valid = 1;
         pendop.op_id = reqm->req_id;
         pendop.view_id = reqm->view_id;
         pendop.type = reqm->op;
@@ -110,6 +114,8 @@ process_nvm(NewVMessage *nvm)
 
                 view_id = nvm->view_id;
                 print_view();
+
+                pendop.valid = 0;
         }
 
         okm.type = OK;
@@ -118,6 +124,49 @@ process_nvm(NewVMessage *nvm)
         okm.recipient = id;
 
         sendto(sk, &okm, sizeof(OkMessage), 0, &hostaddrs[leader], hostaddrslen[leader]);
+}
+
+static void
+process_nlm(NewLMessage *nlm)
+{
+        NewLOK ok;
+
+        if (nlm->view_id != view_id)
+                return;
+
+        ok.type = NEWLEADEROK;
+        ok.req_id = nlm->req_id;
+        ok.view_id = view_id;
+        ok.recipient = id;
+        ok.op = (1 == pendop.valid) ? pendop.type : -1;
+        ok.pid = pendop.pid;
+
+        sendto(sk, &ok, sizeof(NewLOK), 0, &hostaddrs[leader], hostaddrslen[leader]);
+}
+
+static void
+process_nlok(NewLOK *ok)
+{
+        Operation *op;
+
+        if (NULL == (op = q_peek(op_q)))
+                return; // no pending operation
+        if (ok->req_id != op->op_id || ok->view_id != view_id)
+                return; // ack for different operation
+
+        if (0 == op->acks[ok->recipient]) {
+                op->acks[ok->recipient] = 1;
+                op->nacks++;
+
+                op->timeouts[ok->recipient] = 2;
+                op->timers[ok->recipient] = 0;
+
+                if (-1 != ok->op) {
+                        pendop.valid = 1;
+                        pendop.type = ok->op;
+                        pendop.pid = ok->pid;
+                }
+        }
 }
 
 static void
@@ -178,6 +227,14 @@ drain_socket(void)
                         fprintf(stderr, "\tDraining NewVMessage\n");
                         process_nvm((NewVMessage *)msg);
                         break;
+                case NEWLEADER:
+                        fprintf(stderr, "\tDraining NewLMessage\n");
+                        process_nlm((NewLMessage *)msg);
+                        break;
+                case NEWLEADEROK:
+                        fprintf(stderr, "\tDraining NewLOK\n");
+                        process_nlok((NewLOK *)msg);
+                        break;
                 default:
                         // TODO some error handling
                         abort();
@@ -188,7 +245,7 @@ drain_socket(void)
 static void
 heartbeat(void)
 {
-        int i;
+        int i, j;
         time_t currtime = time(NULL);
         HBMessage mybeat = {
                 .type = HB,
@@ -232,6 +289,22 @@ heartbeat(void)
 
                                 q_push(op_q, new_op(LEAVE, i, nhosts));
                         }
+
+                        // leader takeover
+                        if (i == leader) {
+                                fprintf(stderr, "Detected leader failure\n");
+                                leader = (leader+1)%nhosts;
+                                if (id == leader) {
+                                        fprintf(stderr, "I am now the leader\n");
+                                        nalive=0;
+                                        for (j=0; j<nhosts; j++) {
+                                                alive[j] = view[j];
+                                                nalive += alive[j] ? 1 : 0;
+                                        }
+                                        memcpy(alive, view, nhosts * sizeof(char));     // leader uses alive[]
+                                        q_push(op_q, new_op(NEWL, id, nhosts));    // q should be empty
+                                }
+                        }
                 }
         }
 }
@@ -253,6 +326,12 @@ send_req(Operation *op)
                 .view_id = view_id + 1,
                 .req_id = op->op_id,
         };
+        NewLMessage nlm = {
+                .type = NEWLEADER,
+                .view_id = view_id,
+                .req_id = op->op_id,
+        };
+
         char buf[MSGBUFLEN] = { 0 };
 
         for (i=0; i<nhosts; i++) {
@@ -267,15 +346,26 @@ send_req(Operation *op)
                 if (op->nacks < nalive) {
                         if (1 == op->acks[i])
                                 continue;       // already have ack
-                        sendto(sk, &rm, sizeof(ReqMessage), 0, &hostaddrs[i], hostaddrslen[i]);
+                        if (NEWL == op->type)
+                                sendto(sk, &nlm, sizeof(NewLMessage), 0, &hostaddrs[i], hostaddrslen[i]);
+                        else
+                                sendto(sk, &rm, sizeof(ReqMessage), 0, &hostaddrs[i], hostaddrslen[i]);
                 }
                 else if (op->nfacks < nalive) {
                         if (1 == op->facks[i])
                                 continue;       // already have fack
-                        view[op->pid] = op->type == JOIN ? 1 : 0;
-                        memcpy(buf, &nvm, sizeof(NewVMessage));
-                        memcpy(buf+sizeof(NewVMessage), view, nhosts*sizeof(char));
-                        sendto(sk, &buf, MSGBUFLEN*sizeof(char), 0, &hostaddrs[i], hostaddrslen[i]);
+                        if (NEWL == op->type) {
+                                op->nfacks = nalive;
+                                if (1 == pendop.valid) {
+                                        q_push(op_q, new_op(pendop.type, pendop.pid, nhosts));
+                                }
+                        }
+                        else {
+                                view[op->pid] = op->type == JOIN ? 1 : 0;
+                                memcpy(buf, &nvm, sizeof(NewVMessage));
+                                memcpy(buf+sizeof(NewVMessage), view, nhosts*sizeof(char));
+                                sendto(sk, &buf, MSGBUFLEN*sizeof(char), 0, &hostaddrs[i], hostaddrslen[i]);
+                        }
                 }
         }
 }

@@ -3,8 +3,9 @@
 
 #include <stdint.h>
 
-#define JOIN    1
-#define LEAVE   2
+#define JOIN            1
+#define LEAVE           2
+#define NEWL            3
 
 typedef struct {
         int type;

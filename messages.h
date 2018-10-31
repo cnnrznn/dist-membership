@@ -9,6 +9,8 @@
 #define REQ             2
 #define NEWVIEW         3
 #define OK              4
+#define NEWLEADER       5
+#define NEWLEADEROK     6
 
 typedef struct {
         int type;                       // 1
@@ -35,5 +37,20 @@ typedef struct {
         uint32_t view_id;
         int recipient;
 } OkMessage;
+
+typedef struct {
+        int type;
+        uint32_t req_id;
+        uint32_t view_id;
+} NewLMessage;
+
+typedef struct {
+        int type;
+        uint32_t req_id;
+        uint32_t view_id;
+        int recipient;
+        int op;
+        int pid;
+} NewLOK;
 
 #endif /* _MSG_H */
