@@ -1,0 +1,35 @@
+Connor Zanin
+
+ARCHITECTURE
+        NETWORKING
+                All nodes operate on a single UDP socket.
+                Both heartbeat messages as well as the membership protocol are handled with this socket.
+                The function 'drain_socket' pulls all the messages out of the socket every time the system 'ch_tick()'s.
+                From there, protocol messages, or heartbeat messages are pushed to a queue so they can be processed in batch.
+
+                All protocol messages are protected from re-ordering and loss.
+                Messages that do not pertain to the current view are discarded.
+
+                Communication is initiated by the leader.
+                The leader is responsible for re-starting communication if a timeout is violated.
+
+                Timeouts are handled by exponential back-off.
+                There is no cap to this limit, so in theory the maximum timeout is the max value of a 'size_t' worth of seconds.
+                In practice, I should implement a cap and perhaps slow the back-off rate.
+                The back-off rate is 2 in the code.
+
+        HEARTBEAT/FAILURE DETECTOR
+                The failure detector in my system serves two roles: to apply a heuristic (two heartbeats) to determine what processes are alive or dead, and to initiate operations.
+                If the leader's failure detector discovers a process that changes state, it will push the appropriate operation onto a queue.
+                The leader handles the queue one element at a time, updating the view after each operation.
+
+                The failure detector is also responsible for detecting leader failure and choosing the next leader.
+
+        LEADER
+                The leader maintains a queue of pending operations.
+                Operations are processed one at a time, so although there may be more than one pending view changes, changes are applied serially.
+
+                Leaders are chose in a cycle, starting at pid 0.
+                The algorithm is simply
+                leader = (leader+1) % nhosts;
+

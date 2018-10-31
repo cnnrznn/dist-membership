@@ -1,0 +1,10 @@
+Connor Zanin
+
+HOW TO RUN:
+        Log on to login.ccs.neu.edu using your public key and forward the agent.
+        To run part 'N' simply execute
+
+        $ ./part$N/script.sh
+
+        The scripts start 10 tmux windows in every case and log on to different vm's.
+        If any of the VM's are causing issues, the script and hostfile can be changed to accomodate.
