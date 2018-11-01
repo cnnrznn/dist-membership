@@ -25,7 +25,7 @@ int main(int argc, char **argv)
         size_t timeout = 3;
 
         int opt;
-        char options[] = { "h:p:i:t:" };
+        char options[] = { "h:p:i:t:s" };
 
         int data;
 
@@ -51,6 +51,9 @@ int main(int argc, char **argv)
                         case 't':
                                 timeout = atol(optarg);
                                 fprintf(stderr, "timeout is %lu\n", timeout);
+                                break;
+                        case 's':
+                                special_flag = 1;
                                 break;
                         default:
                                 fprintf(stderr, "Unknown option, committing sepuku...\n");

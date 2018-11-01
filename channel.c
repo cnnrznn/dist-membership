@@ -41,6 +41,8 @@ static int leader = 0;
 
 static PendingOp pendop = { .valid=0, };
 
+char special_flag = 0;
+
 static void
 print_view(void)
 {
@@ -348,6 +350,8 @@ send_req(Operation *op)
                                 continue;       // already have ack
                         if (NEWL == op->type)
                                 sendto(sk, &nlm, sizeof(NewLMessage), 0, &hostaddrs[i], hostaddrslen[i]);
+                        else if (1 == special_flag && 0 == id && 1 == i && LEAVE == op->type) {
+                        }
                         else
                                 sendto(sk, &rm, sizeof(ReqMessage), 0, &hostaddrs[i], hostaddrslen[i]);
                 }

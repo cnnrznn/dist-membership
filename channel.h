@@ -3,6 +3,8 @@
 
 #include "messages.h"
 
+extern char special_flag;
+
 int ch_init(char *, char *, int, size_t);
 int ch_fini(void);
 
